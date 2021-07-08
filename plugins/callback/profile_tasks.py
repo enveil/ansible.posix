@@ -9,6 +9,8 @@
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
 
+from ansible import constants as C
+
 DOCUMENTATION = '''
     callback: profile_tasks
     type: aggregate
@@ -147,7 +149,6 @@ class CallbackModule(CallbackBase):
         """
         Logs the start of each task
         """
-        self._display.display(tasktime())
         timestamp(self)
 
         # Record the start time of the current task
@@ -155,6 +156,28 @@ class CallbackModule(CallbackBase):
         self.stats[self.current] = {'time': time.time(), 'name': task.get_name()}
         if self._display.verbosity >= 2:
             self.stats[self.current]['path'] = task.get_path()
+
+    def v2_runner_on_failed(self, result, ignore_errors=False):
+        self._display.display(tasktime())
+
+    def v2_runner_on_ok(self, result):
+        self._display.display(tasktime())
+
+    def v2_runner_on_skipped(self, result):
+        if C.DISPLAY_SKIPPED_HOSTS:
+            self._display.display(tasktime())
+
+    def v2_runner_on_unreachable(self, result):
+        self._display.display(tasktime())
+
+    def v2_runner_on_async_poll(self, result):
+        self._display.display(tasktime())
+
+    def v2_runner_on_async_ok(self, result):
+        self._display.display(tasktime())
+
+    def v2_runner_on_async_failed(self, result):
+        self._display.display(tasktime())
 
     def v2_playbook_on_task_start(self, task, is_conditional):
         self._record_task(task)
