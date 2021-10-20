@@ -81,7 +81,7 @@ options:
   permanent:
     description:
       - Should this configuration be in the running firewalld configuration or persist across reboots.
-      - As of Ansible 2.3, permanent operations can operate on firewalld configs when it is not running (requires firewalld >= 3.0.9).
+      - As of Ansible 2.3, permanent operations can operate on firewalld configs when it is not running (requires firewalld >= 0.3.9).
       - Note that if this is C(no), immediate is assumed C(yes).
     type: bool
   immediate:
@@ -114,7 +114,7 @@ options:
     description:
       - firewalld Zone target
       - If state is set to C(absent), this will reset the target to default
-    choices: [ default, ACCEPT, DROP, REJECT ]
+    choices: [ default, ACCEPT, DROP, "%%REJECT%%" ]
     type: str
     version_added: 1.2.0
 notes:
@@ -213,6 +213,7 @@ EXAMPLES = r'''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.parsing.convert_bool import boolean
 from ansible_collections.ansible.posix.plugins.module_utils.firewalld import FirewallTransaction, fw_offline
 
 try:
@@ -706,7 +707,7 @@ class ForwardPortTransaction(FirewallTransaction):
         if self.fw_offline:
             dummy, fw_settings = self.get_fw_zone_settings()
             return fw_settings.queryForwardPort(port=port, protocol=proto, to_port=toport, to_addr=toaddr)
-        return self.fw.queryForwardPort(port=port, protocol=proto, to_port=toport, to_addr=toaddr)
+        return self.fw.queryForwardPort(zone=self.zone, port=port, protocol=proto, toport=toport, toaddr=toaddr)
 
     def get_enabled_permanent(self, port, proto, toport, toaddr, timeout):
         dummy, fw_settings = self.get_fw_zone_settings()
@@ -748,7 +749,7 @@ def main():
             interface=dict(type='str'),
             masquerade=dict(type='str'),
             offline=dict(type='bool'),
-            target=dict(type='str', choices=['default', 'ACCEPT', 'DROP', 'REJECT']),
+            target=dict(type='str', choices=['default', 'ACCEPT', 'DROP', '%%REJECT%%']),
         ),
         supports_check_mode=True,
         required_by=dict(
@@ -875,6 +876,14 @@ def main():
         if changed is True:
             msgs.append("Changed icmp-block-inversion %s to %s" % (icmp_block_inversion, desired_state))
 
+        # Type of icmp_block_inversion will be changed to boolean in a future release.
+        try:
+            boolean(icmp_block_inversion, True)
+        except TypeError:
+            module.warn('The value of the icmp_block_inversion option is "%s". '
+                        'The type of the option will be changed from string to boolean in a future release. '
+                        'To avoid unexpected behavior, please change the value to boolean.' % icmp_block_inversion)
+
     if service is not None:
 
         transaction = ServiceTransaction(
@@ -991,6 +1000,14 @@ def main():
 
         changed, transaction_msgs = transaction.run()
         msgs = msgs + transaction_msgs
+
+        # Type of masquerade will be changed to boolean in a future release.
+        try:
+            boolean(masquerade, True)
+        except TypeError:
+            module.warn('The value of the masquerade option is "%s". '
+                        'The type of the option will be changed from string to boolean in a future release. '
+                        'To avoid unexpected behavior, please change the value to boolean.' % masquerade)
 
     if target is not None:
 

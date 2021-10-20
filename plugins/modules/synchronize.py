@@ -137,7 +137,9 @@ options:
     default: yes
   use_ssh_args:
     description:
-      - Use the ssh_args specified in ansible.cfg. Setting this to `yes` will also make `synchronize` use `ansible_ssh_common_args`.
+      - In Ansible 2.10 and lower, it uses the ssh_args specified in C(ansible.cfg).
+      - In Ansible 2.11 and onwards, when set to C(true), it uses all SSH connection configurations like
+        C(ansible_ssh_args), C(ansible_ssh_common_args), and C(ansible_ssh_extra_args).
     type: bool
     default: no
   ssh_connection_multiplexing:
@@ -548,10 +550,10 @@ def main():
             ssh_cmd_str = ' '.join(shlex_quote(arg) for arg in ssh_cmd)
             if ssh_args:
                 ssh_cmd_str += ' %s' % ssh_args
-            cmd.append('--rsh=%s' % ssh_cmd_str)
+            cmd.append('--rsh=%s' % shlex_quote(ssh_cmd_str))
 
     if rsync_path:
-        cmd.append('--rsync-path=%s' % rsync_path)
+        cmd.append('--rsync-path=%s' % shlex_quote(rsync_path))
 
     if rsync_opts:
         if '' in rsync_opts:
@@ -577,7 +579,7 @@ def main():
             cmd.append('--link-dest=%s' % link_path)
 
     changed_marker = '<<CHANGED>>'
-    cmd.append('--out-format=' + changed_marker + '%i %n%L')
+    cmd.append('--out-format=%s' % shlex_quote(changed_marker + '%i %n%L'))
 
     # expand the paths
     if '@' not in source:
@@ -601,10 +603,10 @@ def main():
                     raise
 
         (rc, out, err) = module.run_command(
-            cmd, pass_fds=_sshpass_pipe,
+            cmdstr, pass_fds=_sshpass_pipe,
             before_communicate_callback=_write_password_to_pipe)
     else:
-        (rc, out, err) = module.run_command(cmd)
+        (rc, out, err) = module.run_command(cmdstr)
 
     if rc:
         return module.fail_json(msg=err, rc=rc, cmd=cmdstr)
